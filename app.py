@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from ubit_trading import trading_bp
+from upbit_trading import trading_bp
 from upbit_connect import connect_bp
 
 app = Flask(__name__)
