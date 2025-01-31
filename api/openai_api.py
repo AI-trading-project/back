@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 import openai
 from dotenv import load_dotenv
 import os
@@ -6,12 +6,13 @@ import os
 # 환경 변수 로드
 load_dotenv()
 
+# Blueprint 생성
+openai_bp = Blueprint('openai', __name__)
+
 # OpenAI API 키 설정
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-app = Flask(__name__)
-
-@app.route('/chat', methods=['POST'])
+@openai_bp.route('/chat', methods=['POST'])
 def chat():
     try:
         data = request.get_json()
@@ -20,7 +21,6 @@ def chat():
 
         user_input = data["message"]
 
-        # OpenAI API 호출 (동기 방식)
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": user_input}]
@@ -30,7 +30,4 @@ def chat():
         return jsonify({"reply": reply})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        return jsonify({"error": str(e)}), 500 
