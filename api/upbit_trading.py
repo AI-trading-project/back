@@ -5,14 +5,18 @@ import hashlib
 from urllib.parse import urlencode
 import requests
 from datetime import datetime
+from dotenv import load_dotenv
+import os
+
+# 환경 변수 로드
+load_dotenv()
 
 # Blueprint 생성
 trading_bp = Blueprint('trading', __name__)
 
-
 # 업비트 API 접근 키 설정
-ACCESS_KEY = "YOUR_ACCESS_KEY"
-SECRET_KEY = "YOUR_SECRET_KEY"
+ACCESS_KEY = os.getenv('UPBIT_ACCESS_KEY')
+SECRET_KEY = os.getenv('UPBIT_SECRET_KEY')
 SERVER_URL = "https://api.upbit.com"
 
 def create_jwt_token():
