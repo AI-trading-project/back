@@ -1,0 +1,19 @@
+name: Back Create .env file
+
+on:
+  push:
+    branches: 
+      - main
+
+jobs:
+  create-env-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create .env file
+        run: |
+          touch .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "UPBIT_ACCESS_KEY=${{ secrets.UPBIT_ACCESS_KEY }}" >> .env
+          echo "UPBIT_SECRET_KEY=${{ secrets.UPBIT_SECRET_KEY }}" >> .env
+          cat .env
+        shell: bash
