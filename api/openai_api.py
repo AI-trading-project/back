@@ -1,113 +1,38 @@
-# from flask import Blueprint, request, jsonify
-# import openai
-# from dotenv import load_dotenv
-# import os
-
-# # 환경 변수 로드
-# load_dotenv()
-
-# # Blueprint 생성
-# openai_bp = Blueprint('openai', __name__)
-
-# # OpenAI API 키 설정
-# openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# print(os.getenv(openai.api_key))
-
-# @openai_bp.route('/chat', methods=['POST'])
-# def chat():
-#     try:
-#         data = request.get_json()
-#         if not data or "message" not in data:
-#             return jsonify({"error": "Invalid input"}), 400
-
-#         user_input = data["message"]
-
-#         response = openai.ChatCompletion.create(
-#             model="gpt-3.5-turbo",
-#             messages=[{"role": "user", "content": user_input}]
-#         )
-#         reply = response["choices"][0]["message"]["content"]
-
-#         return jsonify({"reply": reply})
-
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500 
-
-
-# from flask import Blueprint, request, jsonify
-# from openai import OpenAI
-# from dotenv import load_dotenv
-# import os
-
-# load_dotenv()
-
-# openai_api_key = os.getenv("OPENAI_API_KEY")
-
-# client = OpenAI(api_key=openai_api_key)
-
-# openai_bp = Blueprint('openai', __name__)
-
-# @openai_bp.route('/chat', methods=['POST'])
-# def chat():
-#     try:
-#         data = request.get_json()
-#         if not data or "message" not in data:
-#             return jsonify({"error": "Invalid input"}), 400
-
-#         user_input = data["message"]
-
-#         response = client.chat.completions.create(
-#             model="gpt-3.5-turbo",
-#             messages=[{"role": "user", "content": user_input}]
-#         )
-#         reply = response.choices[0].message.content
-
-#         return jsonify({"reply": reply})
-
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500
-
-from flask import Blueprint,request, jsonify
+from flask import Blueprint,request, jsonify, current_app
 from flask.wrappers import Response
 from openai import OpenAI
 from api import upbit_connect
 from dotenv import load_dotenv
 import os
 import json
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
+import atexit
 
 # 환경 변수 로드
 load_dotenv()
 
-openai_api_key = os.getenv("OPENAI_API_KEY")
-
-client = OpenAI(api_key=openai_api_key)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 openai_bp = Blueprint('openai', __name__)
 
-# 데이터 제공하고 JSON 형식으로 받는 API
+# 🚀 OpenAI API 호출 대신 테스트용 데이터 반환
 @openai_bp.route('/chat-chart', methods=['GET'])
 def get_chat_chart():
-    try:
-        # 'api'가 무엇인지 정확히 정의되지 않아서, 적절히 수정해줍니다.
-        # 예를 들어, upbit_connect나 upbit_trading에서 chart를 가져오는 함수가 있을 수 있습니다.
-        
+    try:    
         # 데이터 가져오기
         data = upbit_connect.get_chart()
         print(f"Received data: {data}")
 
         # Flask Response 객체 처리
-        if isinstance(data, Response):  # Flask Response 객체인지 확인
+        if isinstance(data, Response): 
             try:
-                # JSON 형식으로 파싱 시도
                 data = data.get_json()
                 print(f"Parsed JSON data: {data}")
             except Exception as e:
-                # JSON 파싱 실패 시, 텍스트로 읽기
                 data = data.get_data(as_text=True)
                 print(f"Raw text data: {data}")
 
-                # 텍스트를 JSON으로 변환 시도
                 try:
                     data = json.loads(data)
                 except json.JSONDecodeError:
@@ -122,10 +47,21 @@ def get_chat_chart():
             messages=[
                 {
                     "role": "system",
-                    "content": "You're a Bitcoin or stock investing expert. "
-                               "Tell me whether I should buy, sell, or hold at the moment based on the chart data provided or the information given. "
-                               "Response in JSON format. Example: "
-                               "{\"decision\": \"buy\", \"reason\": \"some technical reason\"}"
+                    "content": "You are a Bitcoin or stock investing expert."
+                    "Based on the chart data provided or the information I've been given, and based on the trades I've told you to make"
+                    "Tell me if I should buy, sell, or hold at this time."
+                    "The trading method is as follows"
+                    "You should analyze the chart based on these trading methods. The trading method utilizes three indicators: Haikin Ashi candles, Exponential Moving Average (EMA), and Stochastic RSI."
+                    "Haikin Ashi candles: An uptrend is expected when the body of a black candle is longer than the previous one and has no lower tail, and a downtrend is expected when the body of a black candle is longer and has no upper tail. A candle with tails on both sides indicates a trend reversal."
+                    "EMA (200-period moving average): When the price is above the EMA, an uptrend is favorable for a buy (long) entry, and when it is below the EMA, a downtrend is considered for a sell (short) entry."
+                    "Stochastic RSI: A buy opportunity when the Kijun is below 20 and a sell signal when it is above 80. If the Kijun line breaks above the D-line, it is a buy, and if it breaks below, it is a sell."
+                    "Please judge based on the above"
+                    "Please send your response in JSON format."
+                    "Please send your response in Korean!!!!!."
+                    "Example response:"
+                    "{“decision”: “구매”, ‘reason’: “기술적 이유\"}"
+                    "{“decision”: “판매”, ‘Reason’: “기술적 이유\"}"
+                    "{“decision”: “홀드”, ‘reason’: “기술적 이유\"}"
                 },
                 {
                     "role": "user",
@@ -134,14 +70,43 @@ def get_chat_chart():
             ]
         )
 
-        # 응답에서 'choices' -> 'message' -> 'content'를 추출
-        # reply = response['choices'][0]['message']['content']
         reply = response.choices[0].message.content
 
         # 추출된 내용을 JSON 형식으로 반환
-        return jsonify({"reply": reply})
+        return jsonify({"chatai": reply})
 
     except Exception as e:
         # 오류 처리 및 출력
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+# ✅ `app`을 직접 가져오기 (Flask 애플리케이션 참조)
+def get_app():
+    from app import app  # Flask 애플리케이션 객체 가져오기
+    return app
+
+# ✅ 스케줄러 작업 함수
+import json
+
+def scheduled_task():
+    app = get_app()  # Flask 애플리케이션 가져오기
+    print(f"[{datetime.now()}] Running scheduled task...")
+
+    with app.app_context():  # ✅ Flask 애플리케이션 컨텍스트 설정
+        with app.test_client() as client:  # ✅ Flask Fake Request 생성
+            response = client.get('/api/openai/chat-chart')  # ✅ GET 요청 실행
+
+            try:
+                json_data = response.get_json()  # ✅ JSON 데이터 추출
+            except Exception as e:
+                json_data = {"error": f"Failed to parse JSON: {str(e)}"}
+
+            print(f"Scheduled task response: {json.dumps(json_data, ensure_ascii=False)}")
+
+# **스케줄러 설정 및 실행 (app.py 실행 시 자동 실행됨)**
+scheduler = BackgroundScheduler()
+scheduler.add_job(scheduled_task, 'interval', minutes=1)
+scheduler.start()
+
+# **Flask 종료 시 스케줄러도 안전하게 종료**
+atexit.register(lambda: scheduler.shutdown())
