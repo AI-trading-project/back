@@ -67,16 +67,71 @@ class UpbitTrader:
             return None
 
     def get_profit_loss(self):
-        # 수익/손실 계산 로직 구현
         try:
             balance = self.get_balance()
-            if balance:
-                # 간단한 수익/손실 계산 예시
-                return {
-                    'total_balance': sum(float(asset['balance']) * float(asset['avg_buy_price']) for asset in balance),
-                    'assets': balance
-                }
-            return None
+            if not balance:
+                return None
+            
+            total_assets = 0
+            total_bought = 0
+            assets_detail = []
+            
+            for asset in balance:
+                if asset['currency'] == 'KRW':  # 원화는 별도 처리
+                    assets_detail.append({
+                        'currency': 'KRW',
+                        'balance': float(asset['balance']),
+                        'current_price': 1,
+                        'avg_buy_price': 1,
+                        'profit_loss': 0,
+                        'profit_loss_rate': 0
+                    })
+                    total_assets += float(asset['balance'])
+                    continue
+                
+                # 현재가 조회
+                ticker = f"KRW-{asset['currency']}"
+                current_price_response = requests.get(f"https://api.upbit.com/v1/ticker?markets={ticker}")
+                if current_price_response.status_code != 200:
+                    continue
+                
+                current_price = float(current_price_response.json()[0]['trade_price'])
+                balance_amount = float(asset['balance'])
+                avg_buy_price = float(asset['avg_buy_price'])
+                
+                # 현재 평가금액
+                current_value = balance_amount * current_price
+                # 매수 금액
+                bought_value = balance_amount * avg_buy_price
+                
+                # 수익률 계산
+                profit_loss = current_value - bought_value
+                profit_loss_rate = (profit_loss / bought_value * 100) if bought_value > 0 else 0
+                
+                assets_detail.append({
+                    'currency': asset['currency'],
+                    'balance': balance_amount,
+                    'current_price': current_price,
+                    'avg_buy_price': avg_buy_price,
+                    'profit_loss': profit_loss,
+                    'profit_loss_rate': profit_loss_rate
+                })
+                
+                total_assets += current_value
+                total_bought += bought_value
+            
+            # 전체 수익률 계산
+            total_profit_loss = total_assets - total_bought
+            total_profit_loss_rate = (total_profit_loss / total_bought * 100) if total_bought > 0 else 0
+            
+            return {
+                'total_assets': total_assets,
+                'total_bought': total_bought,
+                'total_profit_loss': total_profit_loss,
+                'total_profit_loss_rate': total_profit_loss_rate,
+                'assets_detail': assets_detail
+            }
+            
         except Exception as e:
             print(f"Error calculating profit/loss: {e}")
             return None

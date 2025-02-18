@@ -15,4 +15,4 @@ app.register_blueprint(crawling_bp, url_prefix='/api/crawling')
 
 if __name__ == '__main__':  
     print("🚀 Flask 서버가 시작됩니다...")
-    app.run(debug=True, port=5000, use_reloader=False)
+    app.run(host="0.0.0.0", debug=True, port=5000, use_reloader=False)
