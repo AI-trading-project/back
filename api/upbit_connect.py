@@ -176,3 +176,15 @@ def get_profit_loss():
             'data': data
         })
     return jsonify({'success': False, 'error': '수익/손실 조회 실패'})
+
+from .upbit_crawling import update_market_data
+
+@connect_bp.route('/test', methods=['GET'])
+def test():
+    test = update_market_data()
+    print(test)
+
+    return jsonify({
+        'succuess': True,
+        'data': test
+    })

@@ -6,11 +6,6 @@ from datetime import datetime
 import requests
 import ta
 
-# Blueprint 생성
-crawling_bp = Blueprint('crawling', __name__)
-
-# 스케줄러 생성
-scheduler = BackgroundScheduler(daemon=True)
 
 def calculate_heikin_ashi(df):
     ha_close = (df['open'] + df['high'] + df['low'] + df['close']) / 4
@@ -62,9 +57,7 @@ def update_market_data():
         ema_200 = calculate_ema_200(df)
         stoch_k, stoch_d = calculate_stoch_rsi(df)
         
-        # 최신 데이터 저장
-        global latest_data
-        latest_data = {
+        data = {
             'timestamp': datetime.now().isoformat(),
             'heikin_ashi': {
                 'open': float(ha_df['open'].iloc[-1]),
@@ -78,20 +71,4 @@ def update_market_data():
                 'd': float(stoch_d.iloc[-1])
             }
         }
-
-# 전역 변수로 최신 데이터 저장
-latest_data = None
-
-# 스케줄러 시작
-scheduler.add_job(update_market_data, 'interval', minutes=10)
-scheduler.start()
-
-@crawling_bp.route('/technical-indicators', methods=['GET'])
-def get_technical_indicators():
-    """기술적 지표 조회 API"""
-    if latest_data is not None:
-        return jsonify({
-            'success': True,
-            'data': latest_data
-        })
-    return jsonify({'success': False, 'error': '데이터 없음'})
+    return data
