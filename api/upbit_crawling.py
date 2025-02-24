@@ -21,19 +21,50 @@ def calculate_heikin_ashi(df):
     })
 
 def calculate_ema_200(df):
-    return ta.trend.ema_indicator(df['close'], window=200)
+    # 전체 데이터에 대해 EMA-200 계산
+    close_prices = df['close'].astype(float)
+    ema_200_full = []
+    
+    # 마지막 200개 데이터 포인트에 대해 각각 EMA-200 계산
+    for i in range(200):
+        # i번째 시점까지의 데이터로 EMA-200 계산
+        end_idx = len(close_prices) - 199 + i  # 끝에서 200개씩 슬라이딩
+        current_data = close_prices[:end_idx]
+        if len(current_data) >= 200:  # 충분한 데이터가 있는 경우에만 계산
+            current_ema = ta.trend.ema_indicator(current_data, window=200).iloc[-1]
+            ema_200_full.append(float(current_ema))
+        else:
+            ema_200_full.append(float(current_data.mean()))  # 데이터가 부족한 경우 평균값 사용
+    
+    return ema_200_full
 
 def calculate_stoch_rsi(df, period=14, smooth_k=3, smooth_d=3):
-    stoch_rsi = ta.momentum.stochrsi(df['close'], window=period)
+    # StochRSI 계산
+    rsi = ta.momentum.rsi(df['close'], window=period)
+    
+    # 최소/최대 RSI 계산을 위한 rolling window
+    rsi_min = rsi.rolling(window=period).min()
+    rsi_max = rsi.rolling(window=period).max()
+    
+    # StochRSI 계산
+    stoch_rsi = (rsi - rsi_min) / (rsi_max - rsi_min)
+    
+    # K와 D 라인 계산
     k = stoch_rsi.rolling(window=smooth_k).mean()
     d = k.rolling(window=smooth_d).mean()
+    
+    # NaN 값 처리
+    k = k.fillna(method='bfill')
+    d = d.fillna(method='bfill')
+    
     return k, d
 
 def fetch_market_data(market="KRW-BTC"):
+    # 충분한 데이터를 확보하기 위해 더 많은 캔들 데이터 요청
     url = f"https://api.upbit.com/v1/candles/minutes/10"
     params = {
         "market": market,
-        "count": 200  # EMA 200 계산을 위해 충분한 데이터 필요
+        "count": 1000  # EMA-200 계산을 위해 더 많은 데이터 필요
     }
     
     try:
@@ -43,6 +74,8 @@ def fetch_market_data(market="KRW-BTC"):
             df = pd.DataFrame(data)
             df = df[['opening_price', 'high_price', 'low_price', 'trade_price']]
             df.columns = ['open', 'high', 'low', 'close']
+            # 시간순 정렬 (과거 -> 현재)
+            df = df.iloc[::-1].reset_index(drop=True)
             return df
         return None
     except Exception as e:
@@ -57,18 +90,22 @@ def update_market_data():
         ema_200 = calculate_ema_200(df)
         stoch_k, stoch_d = calculate_stoch_rsi(df)
         
+        # 최근 200개 데이터만 반환
+        last_200_indices = slice(-200, None)
+        
         data = {
             'timestamp': datetime.now().isoformat(),
             'heikin_ashi': {
-                'open': float(ha_df['open'].iloc[-1]),
-                'high': float(ha_df['high'].iloc[-1]),
-                'low': float(ha_df['low'].iloc[-1]),
-                'close': float(ha_df['close'].iloc[-1])
+                'open': ha_df['open'][last_200_indices].tolist(),
+                'high': ha_df['high'][last_200_indices].tolist(),
+                'low': ha_df['low'][last_200_indices].tolist(),
+                'close': ha_df['close'][last_200_indices].tolist()
             },
-            'ema_200': float(ema_200.iloc[-1]),
+            'ema_200': ema_200,
             'stoch_rsi': {
-                'k': float(stoch_k.iloc[-1]),
-                'd': float(stoch_d.iloc[-1])
+                'k': stoch_k[last_200_indices].tolist(),
+                'd': stoch_d[last_200_indices].tolist()
             }
         }
-    return data
+        return data
+    return None
