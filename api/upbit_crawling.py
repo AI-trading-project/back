@@ -10,6 +10,10 @@ import ta
 def calculate_heikin_ashi(df):
     ha_close = (df['open'] + df['high'] + df['low'] + df['close']) / 4
     ha_open = (df['open'].shift(1) + df['close'].shift(1)) / 2
+    
+    # 첫 번째 봉의 시가는 해당 봉의 (시가 + 종가) / 2
+    ha_open.iloc[0] = (df['open'].iloc[0] + df['close'].iloc[0]) / 2
+
     ha_high = df[['high', 'open', 'close']].max(axis=1)
     ha_low = df[['low', 'open', 'close']].min(axis=1)
     
@@ -64,7 +68,7 @@ def fetch_market_data(market="KRW-BTC"):
     url = f"https://api.upbit.com/v1/candles/minutes/10"
     params = {
         "market": market,
-        "count": 1000  # EMA-200 계산을 위해 더 많은 데이터 필요
+        "count": 400  # EMA-200 계산을 위해 더 많은 데이터 필요
     }
     
     try:
